@@ -196,6 +196,48 @@
             background-color: #666; /* Lighter grey on hover */
         }
 
+        /* Custom Modal for Confirmations */
+        .modal {
+            display: none; /* Hidden by default */
+            position: fixed; /* Stay in place */
+            z-index: 1; /* Sit on top */
+            left: 0;
+            top: 0;
+            width: 100%; /* Full width */
+            height: 100%; /* Full height */
+            overflow: auto; /* Enable scroll if needed */
+            background-color: rgba(0,0,0,0.7); /* Black w/ opacity */
+            justify-content: center;
+            align-items: center;
+        }
+
+        .modal-content {
+            background-color: #0a0a0a;
+            margin: auto;
+            padding: 20px;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            width: 80%;
+            max-width: 400px;
+            text-align: center;
+            box-shadow: 0 0 20px var(--border-color);
+        }
+
+        .modal-content h3 {
+            color: var(--text-color);
+            margin-bottom: 20px;
+        }
+
+        .modal-buttons {
+            display: flex;
+            justify-content: space-around;
+            gap: 10px;
+        }
+
+        .modal-buttons button {
+            flex: 1; /* Distribute space evenly */
+        }
+
         /* Responsive adjustments for smaller screens */
         @media (max-width: 768px) {
             body {
@@ -213,60 +255,90 @@
         <div id="app-content"></div>
     </div>
 
+    <!-- Custom Confirmation Modal -->
+    <div id="confirmationModal" class="modal">
+        <div class="modal-content">
+            <h3 id="modalMessage"></h3>
+            <div class="modal-buttons">
+                <button id="modalConfirmBtn">Yes</button>
+                <button id="modalCancelBtn">No</button>
+            </div>
+        </div>
+    </div>
+
     <script>
         // --- SECURITY WARNING ---
-        // This application uses localStorage for data persistence and a very
-        // simple XOR-based "encryption" for passwords. This is HIGHLY INSECURE
-        // and NOT suitable for any production or real-world application.
-        // Data in localStorage is easily accessible and modifiable by users.
-        // For real-world applications, always use a secure server-side backend
-        // with proper database storage and strong, one-way password hashing (e.g., bcrypt).
+        // This application uses localStorage for data persistence (user credentials and messages)
+        // and sessionStorage for the current logged-in user state.
+        // While password hashing is performed using window.crypto.subtle (a browser-provided
+        // cryptographic API), this is still client-side hashing.
+        // This setup is NOT suitable for any production or real-world application
+        // where sensitive data security is paramount. Data in localStorage/sessionStorage
+        // is easily accessible and modifiable by users.
+        // For real-world applications, always use a secure server-side backend with
+        // proper database storage and strong, one-way password hashing (e.g., bcrypt)
+        // and secure session management.
         // --- END SECURITY WARNING ---
 
-        // Simple "encryption" key (insecure for real applications)
-        const ENCRYPTION_KEY = 'superinsecurekey'; // Example key
-
-        /**
-         * Insecurely "encrypts" data using a simple XOR cipher and Base64 encoding.
-         * This is NOT real encryption and is for demonstration purposes ONLY.
-         *
-         * @param {string} data The data to "encrypt".
-         * @param {string} key The "encryption" key.
-         * @returns {string} The base64-encoded "encrypted" data.
-         */
-        function simpleEncrypt(data, key) {
-            let result = '';
-            for (let i = 0; i < data.length; i++) {
-                result += String.fromCharCode(data.charCodeAt(i) ^ key.charCodeAt(i % key.length));
-            }
-            return btoa(result); // Base64 encode for safe storage
-        }
-
-        /**
-         * Insecurely "decrypts" data using a simple XOR cipher and Base64 decoding.
-         * This is NOT real decryption and is for demonstration purposes ONLY.
-         *
-         * @param {string} data The base64-encoded "encrypted" data.
-         * @param {string} key The "encryption" key.
-         * @returns {string} The "decrypted" data.
-         */
-        function simpleDecrypt(data, key) {
-            try {
-                let decoded = atob(data); // Base64 decode first
-                let result = '';
-                for (let i = 0; i < decoded.length; i++) {
-                    result += String.fromCharCode(decoded.charCodeAt(i) ^ key.charCodeAt(i % key.length));
-                }
-                return result;
-            } catch (e) {
-                console.error("Decryption failed:", e);
-                return ''; // Return empty string on failure
-            }
-        }
-
         // Global state variables
-        let loggedInUser = localStorage.getItem('loggedInUser'); // Check for existing session
+        // loggedInUser is stored in sessionStorage for session-only persistence
+        let loggedInUser = sessionStorage.getItem('loggedInUser');
         let appMessage = ''; // Message to display to the user (e.g., error, success)
+
+        // Modal elements
+        const confirmationModal = document.getElementById('confirmationModal');
+        const modalMessage = document.getElementById('modalMessage');
+        const modalConfirmBtn = document.getElementById('modalConfirmBtn');
+        const modalCancelBtn = document.getElementById('modalCancelBtn');
+        let modalCallback = null; // Function to call when modal is confirmed
+
+        /**
+         * Hashes a string using SHA-256 via the Web Cryptography API.
+         * @param {string} message The string to hash.
+         * @returns {Promise<string>} A promise that resolves with the hexadecimal hash string.
+         */
+        async function hashString(message) {
+            const encoder = new TextEncoder();
+            const data = encoder.encode(message);
+            const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+            const hashArray = Array.from(new Uint8Array(hashBuffer));
+            const hexHash = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+            return hexHash;
+        }
+
+        /**
+         * Displays a custom confirmation modal.
+         * @param {string} message The message to display in the modal.
+         * @param {function} onConfirm Callback function if user confirms.
+         */
+        function showConfirmationModal(message, onConfirm) {
+            modalMessage.textContent = message;
+            modalCallback = onConfirm;
+            confirmationModal.style.display = 'flex'; // Use flex to center content
+        }
+
+        /**
+         * Hides the custom confirmation modal.
+         */
+        function hideConfirmationModal() {
+            confirmationModal.style.display = 'none';
+            modalCallback = null;
+        }
+
+        // Event listeners for modal buttons
+        modalConfirmBtn.addEventListener('click', () => {
+            if (modalCallback) {
+                modalCallback(true); // Call callback with true for confirmation
+            }
+            hideConfirmationModal();
+        });
+
+        modalCancelBtn.addEventListener('click', () => {
+            if (modalCallback) {
+                modalCallback(false); // Call callback with false for cancellation
+            }
+            hideConfirmationModal();
+        });
 
         /**
          * Displays a message to the user.
@@ -342,7 +414,13 @@
             // Attach event listeners after rendering
             if (loggedInUser) {
                 document.getElementById('message-form').addEventListener('submit', handleSendMessage);
-                document.getElementById('logout-btn').addEventListener('click', handleLogout);
+                document.getElementById('logout-btn').addEventListener('click', () => {
+                    showConfirmationModal('Are you sure you want to log out?', (confirmed) => {
+                        if (confirmed) {
+                            handleLogout();
+                        }
+                    });
+                });
                 // Scroll chat to bottom
                 const chatBox = document.getElementById('chat-box');
                 if (chatBox) {
@@ -374,7 +452,7 @@
          * Handles user registration.
          * @param {Event} event The form submission event.
          */
-        function handleRegister(event) {
+        async function handleRegister(event) {
             event.preventDefault(); // Prevent default form submission
             const form = event.target;
             const username = form.elements['username'].value.trim();
@@ -396,8 +474,9 @@
             if (userExists) {
                 displayAppMessage('Username or Email already exists.', 'error');
             } else {
-                const encryptedPassword = simpleEncrypt(password, ENCRYPTION_KEY);
-                users.push({ username, email, password: encryptedPassword });
+                // Hash the password using SHA-256 before storing
+                const hashedPassword = await hashString(password);
+                users.push({ username, email, passwordHash: hashedPassword });
                 localStorage.setItem('users', JSON.stringify(users));
                 displayAppMessage('Registration successful! Please log in.', 'success');
                 showLoginForm(); // Switch to login form after successful registration
@@ -408,7 +487,7 @@
          * Handles user login.
          * @param {Event} event The form submission event.
          */
-        function handleLogin(event) {
+        async function handleLogin(event) {
             event.preventDefault(); // Prevent default form submission
             const form = event.target;
             const identifier = form.elements['identifier'].value.trim();
@@ -420,14 +499,17 @@
             }
 
             let users = JSON.parse(localStorage.getItem('users') || '[]');
+            // Hash the entered password for comparison
+            const enteredPasswordHash = await hashString(password);
+
             const foundUser = users.find(user => {
-                const decryptedPassword = simpleDecrypt(user.password, ENCRYPTION_KEY);
-                return (user.username === identifier || user.email === identifier) && decryptedPassword === password;
+                // Compare the hash of the entered password with the stored hash
+                return (user.username === identifier || user.email === identifier) && user.passwordHash === enteredPasswordHash;
             });
 
             if (foundUser) {
                 loggedInUser = foundUser.username;
-                localStorage.setItem('loggedInUser', loggedInUser); // Store session
+                sessionStorage.setItem('loggedInUser', loggedInUser); // Store session in sessionStorage
                 displayAppMessage('Login successful!', 'success');
             } else {
                 displayAppMessage('Invalid credentials.', 'error');
@@ -460,7 +542,7 @@
          * Handles user logout.
          */
         function handleLogout() {
-            localStorage.removeItem('loggedInUser'); // Clear session
+            sessionStorage.removeItem('loggedInUser'); // Clear session
             loggedInUser = null;
             displayAppMessage('You have been logged out.', 'success');
         }
