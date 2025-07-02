@@ -1,0 +1,472 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kali Messenger (JS)</title>
+    <!-- Google Fonts for a terminal-like appearance -->
+    <link href="https://fonts.googleapis.com/css2?family=Anonymous+Pro&family=Fira+Code&display=swap" rel="stylesheet">
+    <style>
+        /* Define CSS variables for easy theme customization */
+        :root {
+            --bg-color: #1a1a1a; /* Dark background */
+            --text-color: #00ff00; /* Kali green text */
+            --border-color: #008000; /* Darker green border */
+            --input-bg: #333; /* Input field background */
+            --button-bg: #008000; /* Button background */
+            --button-hover-bg: #00b300; /* Button hover background */
+            --error-color: #ff0000; /* Red for errors */
+            --success-color: #00cc00; /* Brighter green for success */
+        }
+
+        body {
+            font-family: 'Fira Code', 'Anonymous Pro', monospace; /* Terminal-like font */
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start; /* Align to top for better scrolling on content-heavy pages */
+            min-height: 100vh; /* Full viewport height */
+            box-sizing: border-box;
+            flex-direction: column; /* Allows vertical stacking of elements */
+        }
+
+        .container {
+            background-color: #0a0a0a; /* Even darker background for the main container */
+            border: 1px solid var(--border-color);
+            box-shadow: 0 0 15px var(--border-color); /* Green glowing shadow */
+            padding: 30px;
+            border-radius: 8px; /* Slightly rounded corners */
+            width: 100%;
+            max-width: 600px; /* Max width for readability on larger screens */
+            box-sizing: border-box;
+            margin-bottom: 20px; /* Space between sections if multiple containers */
+        }
+
+        h1, h2 {
+            color: var(--text-color);
+            text-align: center;
+            margin-bottom: 25px;
+            text-shadow: 0 0 5px var(--text-color); /* Subtle text glow */
+        }
+
+        form {
+            display: flex;
+            flex-direction: column;
+            gap: 15px; /* Space between form elements */
+        }
+
+        label {
+            margin-bottom: 5px;
+            display: block;
+            color: var(--text-color);
+        }
+
+        input[type="text"],
+        input[type="email"],
+        input[type="password"],
+        textarea {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid var(--border-color);
+            background-color: var(--input-bg);
+            color: var(--text-color);
+            border-radius: 5px;
+            box-sizing: border-box; /* Include padding/border in element's total width/height */
+            font-family: 'Fira Code', 'Anonymous Pro', monospace;
+            font-size: 1em;
+            outline: none; /* Remove default outline on focus */
+            transition: border-color 0.3s, box-shadow 0.3s; /* Smooth transition for focus effect */
+        }
+
+        input[type="text"]:focus,
+        input[type="email"]:focus,
+        input[type="password"]:focus,
+        textarea:focus {
+            border-color: var(--button-hover-bg);
+            box-shadow: 0 0 8px var(--button-hover-bg); /* Glowing effect on focus */
+        }
+
+        button {
+            background-color: var(--button-bg);
+            color: var(--bg-color); /* Dark text on green button */
+            padding: 12px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-family: 'Fira Code', 'Anonymous Pro', monospace;
+            font-size: 1.1em;
+            transition: background-color 0.3s, box-shadow 0.3s;
+            text-transform: uppercase; /* Uppercase button text */
+            font-weight: bold;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3); /* Subtle button shadow */
+        }
+
+        button:hover {
+            background-color: var(--button-hover-bg);
+            box-shadow: 0 0 10px var(--button-hover-bg), 0 6px 8px rgba(0, 0, 0, 0.4); /* Enhanced glow on hover */
+        }
+
+        .message {
+            text-align: center;
+            margin-top: 20px;
+            padding: 10px;
+            border-radius: 5px;
+            font-weight: bold;
+        }
+
+        .error {
+            color: var(--error-color);
+            border: 1px solid var(--error-color);
+            background-color: rgba(255, 0, 0, 0.1); /* Light red background for errors */
+            display: block;
+            padding: 10px;
+            margin-top: 15px;
+            border-radius: 5px;
+        }
+
+        .success {
+            color: var(--success-color);
+            border: 1px solid var(--success-color);
+            background-color: rgba(0, 255, 0, 0.1); /* Light green background for success */
+            display: block;
+            padding: 10px;
+            margin-top: 15px;
+            border-radius: 5px;
+        }
+
+        .toggle-form-btn {
+            background: none;
+            border: none;
+            color: var(--text-color);
+            text-decoration: underline;
+            cursor: pointer;
+            font-size: 0.9em;
+            margin-top: 15px;
+            text-align: center;
+            display: block;
+            width: 100%; /* Make button take full width */
+            padding: 5px; /* Add some padding */
+            transition: color 0.3s;
+        }
+
+        .toggle-form-btn:hover {
+            color: var(--button-hover-bg);
+        }
+
+        .messenger-area {
+            height: 300px; /* Fixed height for chat display */
+            overflow-y: scroll; /* Enable vertical scrolling */
+            border: 1px solid var(--border-color);
+            background-color: #050505; /* Very dark background for chat messages */
+            padding: 15px;
+            margin-bottom: 20px;
+            border-radius: 5px;
+            word-wrap: break-word; /* Break long words */
+            white-space: pre-wrap; /* Preserve whitespace and line breaks */
+            line-height: 1.6; /* Improve readability of chat messages */
+            font-size: 0.95em;
+        }
+
+        .chat-message {
+            margin-bottom: 8px;
+            line-height: 1.4;
+        }
+
+        .chat-message:last-child {
+            margin-bottom: 0; /* No margin after the last message */
+        }
+
+        .logout-link {
+            display: block;
+            text-align: center;
+            margin-top: 20px;
+            color: var(--text-color);
+            text-decoration: none;
+            padding: 10px 15px;
+            background-color: #444; /* Darker grey background for logout button */
+            border-radius: 5px;
+            transition: background-color 0.3s;
+            font-weight: bold;
+        }
+
+        .logout-link:hover {
+            background-color: #666; /* Lighter grey on hover */
+        }
+
+        /* Responsive adjustments for smaller screens */
+        @media (max-width: 768px) {
+            body {
+                padding: 10px;
+            }
+            .container {
+                padding: 20px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Content will be rendered here by JavaScript -->
+        <div id="app-content"></div>
+    </div>
+
+    <script>
+        // --- SECURITY WARNING ---
+        // This application uses localStorage for data persistence and a very
+        // simple XOR-based "encryption" for passwords. This is HIGHLY INSECURE
+        // and NOT suitable for any production or real-world application.
+        // Data in localStorage is easily accessible and modifiable by users.
+        // For real-world applications, always use a secure server-side backend
+        // with proper database storage and strong, one-way password hashing (e.g., bcrypt).
+        // --- END SECURITY WARNING ---
+
+        // Simple "encryption" key (insecure for real applications)
+        const ENCRYPTION_KEY = 'superinsecurekey'; // Example key
+
+        /**
+         * Insecurely "encrypts" data using a simple XOR cipher and Base64 encoding.
+         * This is NOT real encryption and is for demonstration purposes ONLY.
+         *
+         * @param {string} data The data to "encrypt".
+         * @param {string} key The "encryption" key.
+         * @returns {string} The base64-encoded "encrypted" data.
+         */
+        function simpleEncrypt(data, key) {
+            let result = '';
+            for (let i = 0; i < data.length; i++) {
+                result += String.fromCharCode(data.charCodeAt(i) ^ key.charCodeAt(i % key.length));
+            }
+            return btoa(result); // Base64 encode for safe storage
+        }
+
+        /**
+         * Insecurely "decrypts" data using a simple XOR cipher and Base64 decoding.
+         * This is NOT real decryption and is for demonstration purposes ONLY.
+         *
+         * @param {string} data The base64-encoded "encrypted" data.
+         * @param {string} key The "encryption" key.
+         * @returns {string} The "decrypted" data.
+         */
+        function simpleDecrypt(data, key) {
+            try {
+                let decoded = atob(data); // Base64 decode first
+                let result = '';
+                for (let i = 0; i < decoded.length; i++) {
+                    result += String.fromCharCode(decoded.charCodeAt(i) ^ key.charCodeAt(i % key.length));
+                }
+                return result;
+            } catch (e) {
+                console.error("Decryption failed:", e);
+                return ''; // Return empty string on failure
+            }
+        }
+
+        // Global state variables
+        let loggedInUser = localStorage.getItem('loggedInUser'); // Check for existing session
+        let appMessage = ''; // Message to display to the user (e.g., error, success)
+
+        /**
+         * Displays a message to the user.
+         * @param {string} msg The message content.
+         * @param {string} type The type of message ('success' or 'error').
+         */
+        function displayAppMessage(msg, type) {
+            appMessage = `<div class="message ${type}">${msg}</div>`;
+            renderApp(); // Re-render the app to show the message
+        }
+
+        /**
+         * Renders the login/register forms or the messenger interface based on login status.
+         */
+        function renderApp() {
+            const appContentDiv = document.getElementById('app-content');
+            let html = '';
+
+            if (loggedInUser) {
+                // Messenger Interface
+                const messages = JSON.parse(localStorage.getItem('messages') || '[]');
+                const chatMessagesHtml = messages.map(msg => `<div class="chat-message">${msg}</div>`).join('');
+
+                html = `
+                    <h1>Welcome, <span style="color: var(--success-color);">${loggedInUser}</span>!</h1>
+                    <h2>Kali Messenger</h2>
+                    ${appMessage}
+                    <div class="messenger-area" id="chat-box">
+                        ${chatMessagesHtml}
+                    </div>
+                    <form id="message-form">
+                        <textarea name="message_content" rows="4" placeholder="Type your message here..."></textarea>
+                        <button type="submit">Send Message</button>
+                    </form>
+                    <button class="logout-link" id="logout-btn">Logout</button>
+                `;
+            } else {
+                // Login/Register Forms
+                html = `
+                    <h1>Kali Login / Register</h1>
+                    ${appMessage}
+                    <div id="login-form">
+                        <h2>Login</h2>
+                        <form id="login-form-inner">
+                            <label for="login-identifier">Username or Email:</label>
+                            <input type="text" id="login-identifier" name="identifier" required>
+                            <label for="login-password">Password:</label>
+                            <input type="password" id="login-password" name="password" required>
+                            <button type="submit">Login</button>
+                        </form>
+                        <button class="toggle-form-btn" onclick="showRegisterForm()">Don't have an account? Register here.</button>
+                    </div>
+
+                    <div id="register-form" style="display: none;">
+                        <h2>Register</h2>
+                        <form id="register-form-inner">
+                            <label for="reg-username">Username:</label>
+                            <input type="text" id="reg-username" name="username" required>
+                            <label for="reg-email">Email:</label>
+                            <input type="email" id="reg-email" name="email" required>
+                            <label for="reg-password">Password:</label>
+                            <input type="password" id="reg-password" name="password" required>
+                            <button type="submit">Register</button>
+                        </form>
+                        <button class="toggle-form-btn" onclick="showLoginForm()">Already have an account? Login here.</button>
+                    </div>
+                `;
+            }
+
+            appContentDiv.innerHTML = html;
+            appMessage = ''; // Clear message after rendering
+
+            // Attach event listeners after rendering
+            if (loggedInUser) {
+                document.getElementById('message-form').addEventListener('submit', handleSendMessage);
+                document.getElementById('logout-btn').addEventListener('click', handleLogout);
+                // Scroll chat to bottom
+                const chatBox = document.getElementById('chat-box');
+                if (chatBox) {
+                    chatBox.scrollTop = chatBox.scrollHeight;
+                }
+            } else {
+                document.getElementById('login-form-inner').addEventListener('submit', handleLogin);
+                document.getElementById('register-form-inner').addEventListener('submit', handleRegister);
+            }
+        }
+
+        /**
+         * Shows the registration form and hides the login form.
+         */
+        function showRegisterForm() {
+            document.getElementById('login-form').style.display = 'none';
+            document.getElementById('register-form').style.display = 'block';
+        }
+
+        /**
+         * Shows the login form and hides the registration form.
+         */
+        function showLoginForm() {
+            document.getElementById('register-form').style.display = 'none';
+            document.getElementById('login-form').style.display = 'block';
+        }
+
+        /**
+         * Handles user registration.
+         * @param {Event} event The form submission event.
+         */
+        function handleRegister(event) {
+            event.preventDefault(); // Prevent default form submission
+            const form = event.target;
+            const username = form.elements['username'].value.trim();
+            const email = form.elements['email'].value.trim();
+            const password = form.elements['password'].value;
+
+            if (!username || !email || !password) {
+                displayAppMessage('All fields are required for registration.', 'error');
+                return;
+            }
+            if (!/\S+@\S+\.\S+/.test(email)) { // Basic email validation
+                displayAppMessage('Invalid email format.', 'error');
+                return;
+            }
+
+            let users = JSON.parse(localStorage.getItem('users') || '[]');
+            const userExists = users.some(user => user.username === username || user.email === email);
+
+            if (userExists) {
+                displayAppMessage('Username or Email already exists.', 'error');
+            } else {
+                const encryptedPassword = simpleEncrypt(password, ENCRYPTION_KEY);
+                users.push({ username, email, password: encryptedPassword });
+                localStorage.setItem('users', JSON.stringify(users));
+                displayAppMessage('Registration successful! Please log in.', 'success');
+                showLoginForm(); // Switch to login form after successful registration
+            }
+        }
+
+        /**
+         * Handles user login.
+         * @param {Event} event The form submission event.
+         */
+        function handleLogin(event) {
+            event.preventDefault(); // Prevent default form submission
+            const form = event.target;
+            const identifier = form.elements['identifier'].value.trim();
+            const password = form.elements['password'].value;
+
+            if (!identifier || !password) {
+                displayAppMessage('Both identifier and password are required for login.', 'error');
+                return;
+            }
+
+            let users = JSON.parse(localStorage.getItem('users') || '[]');
+            const foundUser = users.find(user => {
+                const decryptedPassword = simpleDecrypt(user.password, ENCRYPTION_KEY);
+                return (user.username === identifier || user.email === identifier) && decryptedPassword === password;
+            });
+
+            if (foundUser) {
+                loggedInUser = foundUser.username;
+                localStorage.setItem('loggedInUser', loggedInUser); // Store session
+                displayAppMessage('Login successful!', 'success');
+            } else {
+                displayAppMessage('Invalid credentials.', 'error');
+            }
+        }
+
+        /**
+         * Handles sending a message.
+         * @param {Event} event The form submission event.
+         */
+        function handleSendMessage(event) {
+            event.preventDefault();
+            const form = event.target;
+            const messageContent = form.elements['message_content'].value.trim();
+
+            if (messageContent) {
+                const timestamp = new Date().toLocaleString();
+                const chatMessage = `[${timestamp}] ${loggedInUser}: ${messageContent}`;
+
+                let messages = JSON.parse(localStorage.getItem('messages') || '[]');
+                messages.push(chatMessage);
+                localStorage.setItem('messages', JSON.stringify(messages));
+
+                form.elements['message_content'].value = ''; // Clear input
+                renderApp(); // Re-render to show new message
+            }
+        }
+
+        /**
+         * Handles user logout.
+         */
+        function handleLogout() {
+            localStorage.removeItem('loggedInUser'); // Clear session
+            loggedInUser = null;
+            displayAppMessage('You have been logged out.', 'success');
+        }
+
+        // Initial render when the page loads
+        document.addEventListener('DOMContentLoaded', renderApp);
+    </script>
+</body>
+</html>
