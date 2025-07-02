@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Kali Messenger (JS)</title>
+    <title>Kali Messenger (JS) - Ephemeral</title>
     <!-- Google Fonts for a terminal-like appearance -->
     <link href="https://fonts.googleapis.com/css2?family=Anonymous+Pro&family=Fira+Code&display=swap" rel="stylesheet">
     <style>
@@ -267,44 +267,25 @@
     </div>
 
     <script>
-        // --- SECURITY WARNING ---
-        // This application uses localStorage for data persistence (user credentials and messages)
-        // and sessionStorage for the current logged-in user state.
-        // While password hashing is performed using window.crypto.subtle (a browser-provided
-        // cryptographic API), this is still client-side hashing.
-        // This setup is NOT suitable for any production or real-world application
-        // where sensitive data security is paramount. Data in localStorage/sessionStorage
-        // is easily accessible and modifiable by users.
-        // For real-world applications, always use a secure server-side backend with
-        // proper database storage and strong, one-way password hashing (e.g., bcrypt)
-        // and secure session management.
-        // --- END SECURITY WARNING ---
+        // --- NO DATA PERSISTENCE ---
+        // This version of the application does NOT save any user data (usernames,
+        // messages) to localStorage or sessionStorage. All data is ephemeral
+        // and will be lost when the browser tab is closed or refreshed.
+        // There is no "login" or "registration" in a persistent sense;
+        // users simply enter a temporary username for the current session.
+        // --- END NO DATA PERSISTENCE ---
 
         // Global state variables
-        // loggedInUser is stored in sessionStorage for session-only persistence
-        let loggedInUser = sessionStorage.getItem('loggedInUser');
-        let appMessage = ''; // Message to display to the user (e.g., error, success)
+        let loggedInUser = null; // Username for the current session
+        let appMessage = '';     // Message to display to the user (e.g., error, success)
+        let chatMessages = [];   // In-memory array to store current session's messages
 
-        // Modal elements
+        // Modal elements (still used for logout confirmation, even if session is temporary)
         const confirmationModal = document.getElementById('confirmationModal');
         const modalMessage = document.getElementById('modalMessage');
         const modalConfirmBtn = document.getElementById('modalConfirmBtn');
         const modalCancelBtn = document.getElementById('modalCancelBtn');
         let modalCallback = null; // Function to call when modal is confirmed
-
-        /**
-         * Hashes a string using SHA-256 via the Web Cryptography API.
-         * @param {string} message The string to hash.
-         * @returns {Promise<string>} A promise that resolves with the hexadecimal hash string.
-         */
-        async function hashString(message) {
-            const encoder = new TextEncoder();
-            const data = encoder.encode(message);
-            const hashBuffer = await crypto.subtle.digest('SHA-256', data);
-            const hashArray = Array.from(new Uint8Array(hashBuffer));
-            const hexHash = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-            return hexHash;
-        }
 
         /**
          * Displays a custom confirmation modal.
@@ -351,7 +332,7 @@
         }
 
         /**
-         * Renders the login/register forms or the messenger interface based on login status.
+         * Renders the username input screen or the messenger interface based on login status.
          */
         function renderApp() {
             const appContentDiv = document.getElementById('app-content');
@@ -359,8 +340,7 @@
 
             if (loggedInUser) {
                 // Messenger Interface
-                const messages = JSON.parse(localStorage.getItem('messages') || '[]');
-                const chatMessagesHtml = messages.map(msg => `<div class="chat-message">${msg}</div>`).join('');
+                const chatMessagesHtml = chatMessages.map(msg => `<div class="chat-message">${msg}</div>`).join('');
 
                 html = `
                     <h1>Welcome, <span style="color: var(--success-color);">${loggedInUser}</span>!</h1>
@@ -373,37 +353,20 @@
                         <textarea name="message_content" rows="4" placeholder="Type your message here..."></textarea>
                         <button type="submit">Send Message</button>
                     </form>
-                    <button class="logout-link" id="logout-btn">Logout</button>
+                    <button class="logout-link" id="logout-btn">Change Username</button>
                 `;
             } else {
-                // Login/Register Forms
+                // Username Entry Form
                 html = `
-                    <h1>Kali Login / Register</h1>
+                    <h1>Kali Messenger</h1>
                     ${appMessage}
-                    <div id="login-form">
-                        <h2>Login</h2>
-                        <form id="login-form-inner">
-                            <label for="login-identifier">Username or Email:</label>
-                            <input type="text" id="login-identifier" name="identifier" required>
-                            <label for="login-password">Password:</label>
-                            <input type="password" id="login-password" name="password" required>
-                            <button type="submit">Login</button>
+                    <div id="username-entry-form">
+                        <h2>Enter Your Username</h2>
+                        <form id="set-username-form">
+                            <label for="username-input">Username:</label>
+                            <input type="text" id="username-input" name="username" required>
+                            <button type="submit">Start Chatting</button>
                         </form>
-                        <button class="toggle-form-btn" onclick="showRegisterForm()">Don't have an account? Register here.</button>
-                    </div>
-
-                    <div id="register-form" style="display: none;">
-                        <h2>Register</h2>
-                        <form id="register-form-inner">
-                            <label for="reg-username">Username:</label>
-                            <input type="text" id="reg-username" name="username" required>
-                            <label for="reg-email">Email:</label>
-                            <input type="email" id="reg-email" name="email" required>
-                            <label for="reg-password">Password:</label>
-                            <input type="password" id="reg-password" name="password" required>
-                            <button type="submit">Register</button>
-                        </form>
-                        <button class="toggle-form-btn" onclick="showLoginForm()">Already have an account? Login here.</button>
                     </div>
                 `;
             }
@@ -415,7 +378,7 @@
             if (loggedInUser) {
                 document.getElementById('message-form').addEventListener('submit', handleSendMessage);
                 document.getElementById('logout-btn').addEventListener('click', () => {
-                    showConfirmationModal('Are you sure you want to log out?', (confirmed) => {
+                    showConfirmationModal('Are you sure you want to change your username? Current chat will be lost.', (confirmed) => {
                         if (confirmed) {
                             handleLogout();
                         }
@@ -427,93 +390,28 @@
                     chatBox.scrollTop = chatBox.scrollHeight;
                 }
             } else {
-                document.getElementById('login-form-inner').addEventListener('submit', handleLogin);
-                document.getElementById('register-form-inner').addEventListener('submit', handleRegister);
+                document.getElementById('set-username-form').addEventListener('submit', handleSetUsername);
             }
         }
 
         /**
-         * Shows the registration form and hides the login form.
-         */
-        function showRegisterForm() {
-            document.getElementById('login-form').style.display = 'none';
-            document.getElementById('register-form').style.display = 'block';
-        }
-
-        /**
-         * Shows the login form and hides the registration form.
-         */
-        function showLoginForm() {
-            document.getElementById('register-form').style.display = 'none';
-            document.getElementById('login-form').style.display = 'block';
-        }
-
-        /**
-         * Handles user registration.
+         * Handles setting the temporary username.
          * @param {Event} event The form submission event.
          */
-        async function handleRegister(event) {
+        function handleSetUsername(event) {
             event.preventDefault(); // Prevent default form submission
             const form = event.target;
             const username = form.elements['username'].value.trim();
-            const email = form.elements['email'].value.trim();
-            const password = form.elements['password'].value;
 
-            if (!username || !email || !password) {
-                displayAppMessage('All fields are required for registration.', 'error');
-                return;
-            }
-            if (!/\S+@\S+\.\S+/.test(email)) { // Basic email validation
-                displayAppMessage('Invalid email format.', 'error');
+            if (!username) {
+                displayAppMessage('Username cannot be empty.', 'error');
                 return;
             }
 
-            let users = JSON.parse(localStorage.getItem('users') || '[]');
-            const userExists = users.some(user => user.username === username || user.email === email);
-
-            if (userExists) {
-                displayAppMessage('Username or Email already exists.', 'error');
-            } else {
-                // Hash the password using SHA-256 before storing
-                const hashedPassword = await hashString(password);
-                users.push({ username, email, passwordHash: hashedPassword });
-                localStorage.setItem('users', JSON.stringify(users));
-                displayAppMessage('Registration successful! Please log in.', 'success');
-                showLoginForm(); // Switch to login form after successful registration
-            }
-        }
-
-        /**
-         * Handles user login.
-         * @param {Event} event The form submission event.
-         */
-        async function handleLogin(event) {
-            event.preventDefault(); // Prevent default form submission
-            const form = event.target;
-            const identifier = form.elements['identifier'].value.trim();
-            const password = form.elements['password'].value;
-
-            if (!identifier || !password) {
-                displayAppMessage('Both identifier and password are required for login.', 'error');
-                return;
-            }
-
-            let users = JSON.parse(localStorage.getItem('users') || '[]');
-            // Hash the entered password for comparison
-            const enteredPasswordHash = await hashString(password);
-
-            const foundUser = users.find(user => {
-                // Compare the hash of the entered password with the stored hash
-                return (user.username === identifier || user.email === identifier) && user.passwordHash === enteredPasswordHash;
-            });
-
-            if (foundUser) {
-                loggedInUser = foundUser.username;
-                sessionStorage.setItem('loggedInUser', loggedInUser); // Store session in sessionStorage
-                displayAppMessage('Login successful!', 'success');
-            } else {
-                displayAppMessage('Invalid credentials.', 'error');
-            }
+            loggedInUser = username;
+            chatMessages = []; // Clear messages for new session
+            displayAppMessage(`Welcome, ${username}!`, 'success');
+            // renderApp() is called by displayAppMessage
         }
 
         /**
@@ -529,9 +427,7 @@
                 const timestamp = new Date().toLocaleString();
                 const chatMessage = `[${timestamp}] ${loggedInUser}: ${messageContent}`;
 
-                let messages = JSON.parse(localStorage.getItem('messages') || '[]');
-                messages.push(chatMessage);
-                localStorage.setItem('messages', JSON.stringify(messages));
+                chatMessages.push(chatMessage); // Add to in-memory array
 
                 form.elements['message_content'].value = ''; // Clear input
                 renderApp(); // Re-render to show new message
@@ -539,12 +435,13 @@
         }
 
         /**
-         * Handles user logout.
+         * Handles changing username (effectively a "logout" for an ephemeral session).
          */
         function handleLogout() {
-            sessionStorage.removeItem('loggedInUser'); // Clear session
             loggedInUser = null;
-            displayAppMessage('You have been logged out.', 'success');
+            chatMessages = []; // Clear messages when username is changed
+            displayAppMessage('Please enter a new username to continue.', 'success');
+            // renderApp() is called by displayAppMessage
         }
 
         // Initial render when the page loads
